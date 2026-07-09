@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .control-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #b0b0b0;
+        }
+        
+        .waveform-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .wave-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .wave-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .wave-btn.active {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+        }
+        
+        .frequency-display {
+            text-align: center;
+            font-size: 3em;
+            font-weight: bold;
+            color: #00d4ff;
+            margin: 20px 0;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .slider-container {
+            margin: 20px 0;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00d4ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .play-btn {
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #fff;
+            font-size: 1.3em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+        
+        .play-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
+        }
+        
+        .play-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .play-btn.playing {
+            background: linear-gradient(135deg, #ff4757 0%, #c0392b 100%);
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .volume-control input[type="range"] {
+            flex: 1;
+        }
+        
+        .volume-icon {
+            font-size: 1.5em;
+            color: #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Tone Generator</h1>
+        
+        <div class="control-group">
+            <label>Select Waveform:</label>
+            <div class="waveform-buttons">
+                <button class="wave-btn active" data-wave="sine">Sine</button>
+                <button class="wave-btn" data-wave="triangle">Triangle</button>
+                <button class="wave-btn" data-wave="square">Square</button>
+                <button class="wave-btn" data-wave="sawtooth">Sawtooth</button>
+            </div>
+        </div>
+        
+        <div class="frequency-display">
+            <span id="frequencyValue">440</span> Hz
+        </div>
+        
+        <div class="slider-container">
+            <label>Frequency: 20 Hz - 2000 Hz</label>
+            <input type="range" id="frequencySlider" min="20" max="2000" value="440">
+        </div>
+        
+        <div class="volume-control">
+            <span class="volume-icon">🔊</span>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50">
+        </div>
+        
+        <button class="play-btn" id="playButton">Play Tone</button>
+    </div>
+
+    <script>
+        // Audio context and nodes
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+        let isPlaying = false;
+        let currentWaveform = 'sine';
+        
+        // DOM elements
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyValue = document.getElementById('frequencyValue');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const playButton = document.getElementById('playButton');
+        const waveButtons = document.querySelectorAll('.wave-btn');
+        
+        // Initialize audio context
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        // Create and start oscillator
+        function startTone() {
+            initAudio();
+            
+            // Stop existing oscillator if playing
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+            }
+            
+            // Create new oscillator and gain nodes
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            // Set waveform and frequency
+            oscillator.type = currentWaveform;
+            oscillator.frequency.setValueAtTime(parseInt(frequencySlider.value), audioCtx.currentTime);
+            
+            // Set volume
+            gainNode.gain.setValueAtTime(parseInt(volumeSlider.value) / 100, audioCtx.currentTime);
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Start playing
+            oscillator.start();
+            isPlaying = true;
+            playButton.textContent = 'Stop Tone';
+            playButton.classList.add('playing');
+        }
+        
+        // Stop oscillator
+        function stopTone() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            
+            isPlaying = false;
+            playButton.textContent = 'Play Tone';
+            playButton.classList.remove('playing');
+        }
+        
+        // Toggle play/stop
+        function togglePlay() {
+            if (isPlaying) {
+                stopTone();
+            } else {
+                startTone();
+            }
+        }
+        
+        // Update frequency display
+        function updateFrequency() {
+            frequencyValue.textContent = frequencySlider.value;
+            
+            if (oscillator && isPlaying) {
+                oscillator.frequency.setValueAtTime(parseInt(frequencySlider.value), audioCtx.currentTime);
+            }
+        }
+        
+        // Update volume
+        function updateVolume() {
+            if (gainNode && isPlaying) {
+                gainNode.gain.setValueAtTime(parseInt(volumeSlider.value) / 100, audioCtx.currentTime);
+            }
+        }
+        
+        // Change waveform
+        function changeWaveform(wave) {
+            currentWaveform = wave;
+            
+            // Update button states
+            waveButtons.forEach(btn => {
+                if (btn.dataset.wave === wave) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // If playing, restart with new waveform
+            if (isPlaying) {
+                stopTone();
+                startTone();
+            }
+        }
+        
+        // Event listeners
+        playButton.addEventListener('click', togglePlay);
+        
+        frequencySlider.addEventListener('input', updateFrequency);
+        volumeSlider.addEventListener('input', updateVolume);
+        
+        waveButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                changeWaveform(btn.dataset.wave);
+            });
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            }
+        });
+    </script>
+</body>
+</html>
